@@ -4,7 +4,7 @@ Hybris is an instagram direct messages client built on top of reactphp and insta
 Hybris includes all the benefit of a sleek cli ui and the reactivity of the instagram Realtime system.
 
 
-# installation
+# Installation
 
 Hybris depend on php and composer
 
@@ -29,3 +29,23 @@ echo "BITLY_TOKEN=YOUR_TOKEN_HERE" >> .env
 
 I't fairly simple, just login, then choose the chat you want and start chatting.
 Press CTRL+E while in a chat to exit.
+
+
+#State of the art
+
+Actually it can run on Linux and MacOs (not tested but super sure!).
+It can't run on Windows because of a php bug, see [here](https://bugs.php.net/bug.php?id=47918&thanks=6) the bug.
+
+Things done :
+    # Login
+    # Chats view (not infinite scrolling)
+    # Chat view (complete, almost)
+    # Message sending
+
+Actually there's something to do : 
+    # Load more chat in chat selection screen (soon)
+    # Support media sending (soon)
+    # Support message deletion (idk)
+    # Support vocals message playback (idk)
+    # Support vocal message sending (idk)
+    # Support Windows
