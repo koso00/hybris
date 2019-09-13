@@ -9,7 +9,7 @@ Hybris includes all the benefit of a sleek cli ui and the reactivity of the inst
 Hybris depend on php and composer
 
 ```
-git clone origin https://github.com/koso00/hybris.git
+git clone https://github.com/koso00/hybris.git
 cd hybris
 composer update
 ```
