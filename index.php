@@ -17,6 +17,12 @@ $container = new Container();
 $log = new Logger('app');
 $container->register('logger',$log); //register before anything to use logger in case of exeptions in construct of components
 
+
+if (!file_exists(__DIR__ . '/.env')){
+    file_put_contents(__DIR__ . '/.env', '');
+}
+
+
 $dotenv = \Dotenv\Dotenv::create(__DIR__);
 $dotenv->load();
 $loop = React\EventLoop\Factory::create();
