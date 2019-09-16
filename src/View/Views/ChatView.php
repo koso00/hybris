@@ -16,12 +16,13 @@ class ChatView extends AbstractView {
     private $rendered_items = [];
     private $users = [];
     private $prevCursor;
-    private $hasOlder;
+    private $hasOlder = false;
     private $viewerId;
     private $viewBuffer = [];
+    private $prompt = "| Write message > ";
     private $activity = false;
     private $seen = false;
-
+    private $inputLines = array();
     public function build(Stdio $stdio,$argument = null){
        
         $this->threadId = $argument;
@@ -31,11 +32,35 @@ class ChatView extends AbstractView {
             'left' => 20
         ]);*/
         $this->updateThread();
-        $stdio->setPrompt('| Write message > ');
+        $stdio->setPrompt($this->prompt);
         $stdio->setEcho(true);
 
         $this->scrollHeight = count($this->viewBuffer);
+        
+        $width = intval(getenv('COLUMNS'));
+        $this->getContainer()->get('loop')->addPeriodicTimer(0.1,\Closure::bind(function () use ($width) {
+            $stdio = $this->getContainer()->get('stdio');
+            $line = $stdio->getReadLine()->getInput();
+            $wrap = $this->wrapText($line);
+            if (count($this->wrapText($line)) > 1 ){
+                $this->getContainer()->get('logger')->debug(json_encode($wrap));
 
+                $lastChar = array_pop($wrap);
+
+                $this->inputLines = array_merge($this->inputLines, $wrap);
+
+                //$this->getContainer()->get('logger')->debug(json_encode($this->inputLines));
+                $stdio->getReadLine()->setInput($lastChar);
+                $this->drawChat();
+            }else{
+                if (count($this->inputLines) != 0 && $line == ''){
+                    $line = array_pop($this->inputLines);
+                    $stdio->setInput($line);
+                    $this->drawChat();
+                }
+            }
+        },$this));
+        
         $stdio->on("\033[B", \Closure::bind(function () {
             if ($this->scroll > 0){
                 $this->scroll -= 3;//= max($this->scroll-2,0);
@@ -53,7 +78,9 @@ class ChatView extends AbstractView {
                 $this->scroll = min($this->scrollHeight - $this->getChatHeight(),$this->scroll + 3);
                 $this->drawChat();
                 if ($this->scroll > $this->scrollHeight - $this->getChatHeight() - 10){
+                   if ($this->hasOlder){
                     $this->loadMore();
+                   } 
                 }
                 //$this->drawInbox();
             }
@@ -82,10 +109,20 @@ class ChatView extends AbstractView {
         // SEND A MESSAGE
         $stdio->on("data", \Closure::bind(function ($input) {
             $logger = $this->getContainer()->get('logger');
+            
             $input = rtrim($input);
+
+            $inputLine = "";
+            foreach ($this->inputLines as $line){
+                $inputLine = $inputLine.$line;
+            }
+            $input = $inputLine.$input;
+
             if ($input == ""){
+                $this->drawChat();
                 return;
             }
+            $this->inputLines = [];
             $item = new Item();
             $item->setUserId($this->viewerId)->setItemType("text")->setText(rtrim($input));
             //$logger->debug($input);
@@ -135,7 +172,7 @@ class ChatView extends AbstractView {
                 "seenAt" => $seenAt,
                 "userId" => $userId
             )));
-            if ($threadId == $this->threadId){
+            if ($threadId == $this->threadId && $userId != $this->viewerId){
                 $this->seen = true;
                 $this->drawChat();
             }
@@ -170,6 +207,8 @@ class ChatView extends AbstractView {
                 $this->activity = false;
                 $this->seen = false;
                 array_unshift($this->items,$threadItem);
+
+                $this->getContainer()->get('realtime')->markDirectItemSeen($threadId,$threadItemId);
                 $this->drawChat();
             }else{
                 $process = new Process('notify-send "New message from '.$this->getContainer()->get('ig')->direct->getThread($threadId)->getThread()->getThreadTitle().'" "'.$threadItem->getText().'"');
@@ -231,7 +270,41 @@ class ChatView extends AbstractView {
         //$this->drawView();
         $this->drawChat();
     }
+    function flatten(array $array) {
+        $return = array();
+        array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
+        return $return;
+    }
+    private function wrapText($text){
+        $stdio = $this->getContainer()->get('stdio');
+        $width = intval(getenv('COLUMNS'));
+        $limit = $width - strlen($this->prompt) - 3;
+        //$stdio->write($text."\n");
 
+        //$this->getContainer()->get('logger')->debug($text);
+
+        $wrap = wordwrap($text, $limit,"\n");
+
+        //$this->getContainer()->get('logger')->debug(json_encode($wrap));
+
+        $exploded = explode("\n",$wrap);
+
+        $shouldFlatten = false;
+        foreach ($exploded as &$s){
+            if (strlen($s) > $limit){
+                $shouldFlatten = true;
+                $s = explode("\n",wordwrap($s, $limit,"\n",true));
+                //$this->getContainer()->get('logger')->debug(json_encode($s));
+            }
+        }     
+
+        if ($shouldFlatten){
+            $exploded = $this->flatten($exploded);
+        }
+
+        return $exploded;
+    }
+    
     private function getChatHeight(){
         return intval(getenv('LINES')) - 5;
     }
@@ -239,7 +312,8 @@ class ChatView extends AbstractView {
     private function loadMore(){
         $more = $this->getContainer()->get('ig')->direct->getThread($this->threadId,$this->prevCursor);
         $this->prevCursor = $more->getThread()->getPrevCursor();
-        $this->items = array_merge($this->items,$more->getThread()->getItems(),);
+        $this->hasOlder = $more->getThread()->getHasOlder();
+        $this->items = array_merge($this->items,$more->getThread()->getItems());
         $this->drawChat();
     }
     private function updateThread(){
@@ -247,8 +321,16 @@ class ChatView extends AbstractView {
         $logger = $this->getContainer()->get('logger');
         $this->thread = $this->getContainer()->get('ig')->direct->getThread($this->threadId);
         //$logger->debug(json_encode($this->thread));
+        $this->hasOlder = $this->thread->getThread()->getHasOlder();
         $this->prevCursor = $this->thread->getThread()->getPrevCursor();
         $this->items = $this->thread->getThread()->getItems();
+
+        if (isset($this->items[0])){
+            if ($this->items[0]->getUserId() != $this->viewerId){
+                $this->getContainer()->get('realtime')->markDirectItemSeen($this->threadId,$this->items[0]->getItemId());
+            }
+        }
+        //$logger->debug(json_encode($this->items));
         $this->viewerId = $this->thread->getThread()->getViewerId();
         $this->getContainer()->get('message-render')->setViewerId($this->viewerId);
         //$stdio->write(json_encode($this->thread,JSON_PRETTY_PRINT));
@@ -259,7 +341,9 @@ class ChatView extends AbstractView {
 
         $stdio = $this->getcontainer()->get('stdio');
         //$stdio->write("\e[1;1H\e[2J\n");
-        $stdio->write("\e[1;1H\e[2J\n");
+        for ($i = 0; $i < intval(getenv('LINES'));$i++){
+            $stdio->write("\033[2K\033[1A");
+        }
 
         /**
          * 
@@ -297,7 +381,10 @@ class ChatView extends AbstractView {
         }
 
         $this->drawView();
-        $stdio->write(".".str_pad("",$width - 2,"-").".\n");        
+        $stdio->write(".".str_pad("",$width - 2,"-").".\n");
+        foreach($this->inputLines as $line){
+            $stdio->write("| ".str_pad("",strlen($this->prompt) - 2," ").$line."\n");
+        }   
     }
     
     private function invalidateRenderCache(){
@@ -324,7 +411,7 @@ class ChatView extends AbstractView {
         $this->scrollHeight = count($this->viewBuffer);
 
         //$stdio->write("\e[1;1H\e[2J\n");
-        $height = $this->getChatHeight();
+        $height = $this->getChatHeight() - count($this->inputLines);
         $width = intval(getenv('COLUMNS'));
 
         $offsetBufferIndex = max($this->scrollHeight - $height - $this->scroll,0);

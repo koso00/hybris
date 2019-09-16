@@ -69,6 +69,10 @@ class RenderItem {
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
+            case "like":
+                $this->height = 1;
+                $this->width = 1;
+                break;
             case "link":
                 $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->getLink()->getText());
                 $this->height = 1;
@@ -84,6 +88,17 @@ class RenderItem {
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
+            case "placeholder":
+                $wrap = $this->wrapText($this->item->getPlaceholder()->getMessage());
+                if (count($wrap) == 1){
+                    $this->height = 1;
+                    $this->width = strlen($wrap[0]);   
+                }else{
+                    $this->height = count($wrap);
+                    $this->width = max(array_map(function($var){return strlen($var);},$wrap));
+                }                
+                $this->getContainer()->get('logger')->debug(json_encode( $wrap).$this->width);
+                break;
             case "raven_media":
                 if (isset(json_decode(json_encode($this->item))->visual_media->media->image_versions2)){
                     $this->bitly  = $this->getContainer()->get('bitly')->shorten(json_decode(json_encode($this->item))->visual_media->media->image_versions2->candidates[0]->url);
@@ -96,17 +111,44 @@ class RenderItem {
                 $this->width = strlen($this->bitly);
                 break;
             default:
-                //$this->getContainer()->get('logger')->debug(json_encode($this->item));
+                $this->getContainer()->get('logger')->debug(json_encode($this->item));
         }
     }
  
+    function flatten(array $array) {
+        $return = array();
+        array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
+        return $return;
+    }
+
     private function wrapText($text){
         $stdio = $this->getContainer()->get('stdio');
         
+        $limit = $this->getWindowWidth() - PADDING_LEFT - PADDING_RIGHT - 2;
         //$stdio->write($text."\n");
-        $wrap = wordwrap($text,$this->getWindowWidth() - PADDING_LEFT - PADDING_RIGHT - 2 ,"\n");
-        
-        return explode("\n",$wrap);
+
+        //$this->getContainer()->get('logger')->debug($text);
+
+        $wrap = wordwrap($text, $limit,"\n");
+
+        //$this->getContainer()->get('logger')->debug(json_encode($wrap));
+
+        $exploded = explode("\n",$wrap);
+
+        $shouldFlatten = false;
+        foreach ($exploded as &$s){
+            if (strlen($s) > $limit){
+                $shouldFlatten = true;
+                $s = explode("\n",wordwrap($s, $limit,"\n",true));
+                //$this->getContainer()->get('logger')->debug(json_encode($s));
+            }
+        }     
+
+        if ($shouldFlatten){
+            $exploded = $this->flatten($exploded);
+        }
+
+        return $exploded;
     }
 
     public function render(){
@@ -140,6 +182,23 @@ class RenderItem {
 
                     array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     break;
+                case "placeholder":
+
+                    $wrap = $this->wrapText($this->item->getPlaceholder()->getTitle());
+                    foreach ($wrap as $value) {
+                        # code...
+                        array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth() )." |");
+                    }
+
+                    $wrap = $this->wrapText($this->item->getPlaceholder()->getMessage());
+                    foreach ($wrap as $value) {
+                        # code...
+                        array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth() )." |");
+                    }
+                    break;
+                case "like":
+                    array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth("❤️".str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
+                    break;
             }
             
             array_push($t,str_pad("",PADDING_LEFT," ")."`".str_pad("",$this->getWidth() + 2,"-")."´");
@@ -168,6 +227,24 @@ class RenderItem {
                     array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth("-voice-".str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     break;
+                case "placeholder":
+                    $wrap = $this->wrapText($this->item->getPlaceholder()->getTitle());
+                    foreach ($wrap as $value) {
+                        # code...
+                        //$emoji = \Emoji\detect_emoji($value);
+                        array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
+                    }
+                    $wrap = $this->wrapText($this->item->getPlaceholder()->getMessage());
+                    foreach ($wrap as $value) {
+                        # code...
+                        //$emoji = \Emoji\detect_emoji($value);
+                        array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
+                    }
+                    break;
+                case "like":
+                    array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth("❤️".str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
+                    break;
+
             }
             array_push($t,str_pad("",$localPaddingLeft," ")."`".str_pad("",$this->getWidth() + 2,"-")."´");
         }

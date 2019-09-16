@@ -1,3 +1,4 @@
+#!/bin/bash -i php
 <?php
 // Normal autoload
 $autoload = __DIR__ . '/vendor/autoload.php';
@@ -10,6 +11,8 @@ use App\MessageRender\BitlyCache;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Clue\React\Stdio\Stdio;
+
+
 
 
 
@@ -35,6 +38,19 @@ $ig = new \InstagramAPI\Instagram(false, false,array(
     'basefolder' => __DIR__.'/sessions'
 ));
 
+$pcntl = new \MKraemer\ReactPCNTL\PCNTL($loop);
+
+$pcntl->on(SIGINT,function()use($stdio,$loop){
+    $stdio->setPrompt('');
+    $stdio->setEcho('');
+    for ($i = 0; $i < intval(getenv('LINES')) + 1;$i++){
+        $stdio->write("\033[2K\033[1A");
+    }
+    $loop->futureTick(function()use($loop){
+        $loop->stop();
+        die();
+    });
+});
 
 $log->pushHandler(new StreamHandler(__DIR__.'/log.log', Logger::DEBUG));
 

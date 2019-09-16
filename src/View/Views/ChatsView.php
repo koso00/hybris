@@ -15,10 +15,14 @@ class ChatsView extends AbstractView {
     private $viewerId;
     private $viewBuffer = [];
     private $scroll = 0;
+    private $hasOlder = false;
+    private $threads = [];
+    private $nextCursor;
 
     private function getChatHeight(){
         return intval(getenv('LINES')) - 4;
     }
+
     private function convert($size)
     {
         $unit=array('b','kb','mb','gb','tb','pb');
@@ -133,7 +137,9 @@ class ChatsView extends AbstractView {
         });
         
         //Clean the screen
-        $stdio->write("\e[1;1H\e[2J\n");
+        for ($i = 0; $i < intval(getenv('LINES'));$i++){
+            $stdio->write("\033[2K\033[1A");
+        }
         $stdio->write("| loading inbox ...");
 
         $this->updateInbox();
@@ -157,7 +163,7 @@ class ChatsView extends AbstractView {
 
 
         $stdio->on("\033[B", \Closure::bind(function () {
-            if ($this->cursor < count($this->inbox->getInbox()->getThreads())-1 ){
+            if ($this->cursor < count($this->threads)-1 ){
                 $this->cursor ++;
 
 
@@ -169,9 +175,12 @@ class ChatsView extends AbstractView {
                     }
                 }
                 
-               
+               if ($this->cursor == count($this->threads) -1 && $this->hasOlder){
+                    $this->loadMore();
+               }else{
+                    $this->drawInbox();
+               }
                // 
-                $this->drawInbox();
             }
         },$this)); 
     
@@ -190,7 +199,7 @@ class ChatsView extends AbstractView {
             $this->getContainer()->get('stdio')->removeAllListeners("\n");
             $this->getContainer()->get('stdio')->removeAllListeners("\033[A");
             $this->getContainer()->get('stdio')->removeAllListeners("\033[B");
-            $this->getContainer()->get('view-controller')->go("Chat",$this->inbox->getInbox()->getThreads()[$this->cursor]->getThreadId());
+            $this->getContainer()->get('view-controller')->go("Chat",$this->threads[$this->cursor]->getThreadId());
         },$this));
         /*
         $stdio->on("\033[B", function () use (&$value, $stdio) {
@@ -203,11 +212,27 @@ class ChatsView extends AbstractView {
 
     }
 
+    private function loadMore(){
+        $more = $this->getContainer()->get('ig')->direct->getInbox($this->nextCursor);
+        $this->hasOlder = $more->getInbox()->getHasOlder() == true ? true : false;
+        $this->nextCursor = $more->getInbox()->getOldestCursor();
+        $this->threads = array_merge($this->threads,$more->getInbox()->getThreads());
+        //$this->getContainer()->get('stdio')->write(json_encode($more->getInbox()->getThreads(),JSON_PRETTY_PRINT));
+        $this->drawInbox();
+       
+    }
+
+
     private function updateInbox(){
         $this->inbox = $this->getContainer()->get('ig')->direct->getInbox();
-        
+        $this->threads = $this->inbox->getInbox()->getThreads();
+        //$this->getContainer()->get('logger')->debug(json_encode($this->inbox));
         $this->viewerId = $this->inbox->getViewer()["pk"];
         $this->username = $this->inbox->getViewer()["username"];
+        $this->hasOlder = $this->inbox->getInbox()->getHasOlder() == true ? true : false;
+        $this->nextCursor = $this->inbox->getInbox()->getOldestCursor();
+
+        $this->getContainer()->get('logger')->debug($this->hasOlder);
         //$this->viewerId = $this->inbox->getInbox()->getViewerId();
         $this->drawInbox();
     }
@@ -218,7 +243,9 @@ class ChatsView extends AbstractView {
 
         $stdio = $this->getcontainer()->get('stdio');
 
-        $stdio->write("\e[1;1H\e[2J\n");
+        for ($i = 0; $i < intval(getenv('LINES'));$i++){
+            $stdio->write("\033[2K\033[1A");
+        }
 
         /**
          * 
@@ -230,10 +257,10 @@ class ChatsView extends AbstractView {
         //$this->scrollHeight = $this->getContainer()->get('message-render')->computeThreadHeight($this->thread);
         $memory = "- memory usage : ".str_pad($this->convert(memory_get_usage(true)),10," ");
         
-        $stdio->write("\033[1m".str_pad("",$paddingLeft," ")." Hybris ".$memory."\033[0m\n");
+        $stdio->write("\033[1m Hybris ".$memory."\033[0m\n");
         $stdio->write(str_pad("",$width,"-")."\n");
 
-        $threads = $this->inbox->getInbox()->getThreads();
+        $threads = $this->threads;
 
 
         $background = "";
@@ -256,24 +283,32 @@ class ChatsView extends AbstractView {
             if ($thread->getReadState() != 0){
                 $threadTitle = "# ".$threadTitle;
             }
+            $threadTitle = $bold.$threadTitle.$reset;
             $lastItem = $thread->getLastPermanentItem();
-            switch ($lastItem->getItemType()){
-                case "text":
-                    $threadMessage = str_replace("\n"," ",$lastItem->getText());
 
-                    if ($lastItem->getUserId() == $this->viewerId){
-                        $threadMessage = "You : ".$threadMessage;
-                    }
-                    
-                    break;
-                default:
-                    $threadMessage = "-media-";
-                    if ($lastItem->getUserId() == $this->viewerId){
-                        $threadMessage = "You : ".$threadMessage;
-                    }
-                    break;
+            if ($lastItem != null){
+                switch ($lastItem->getItemType()){
+                    case "text":
+                        $threadMessage = str_replace("\n"," ",$lastItem->getText());
+    
+                        if ($lastItem->getUserId() == $this->viewerId){
+                            $threadMessage = "You : ".$threadMessage;
+                        }
+                        
+                        break;
+                    default:
+                        $threadMessage = "-media-";
+                        if ($lastItem->getUserId() == $this->viewerId){
+                            $threadMessage = "You : ".$threadMessage;
+                        }
+                        break;
+                }
+    
+            }else{
+                //$this->getContainer()->get('logger')->debug(json_encode($thread));
+                $threadMessage = "";
             }
-
+            
             if ($cursor === $key){
                 $preTitle = "  >> ";
                 $preMessage = "  >> ";
@@ -334,16 +369,18 @@ class ChatsView extends AbstractView {
             }
             
             if (!isset($this->viewBuffer[$x])){
-                $stdio->write(mb_strimwidth(str_pad("",$width," "),0,$width - 1)."$thumb\n");
-            }else{
-                $emoji = \Emoji\detect_emoji($this->viewBuffer[$x]);
-                $stdio->write(mb_strimwidth($this->viewBuffer[$x].str_pad("",$width," "),0,$width - 1 - count($emoji))."$thumb\n");
-                //$logger->debug($this->viewBuffer[$x]);
 
+                $stdio->write(mb_strimwidth(str_pad("",$width," "),0,$width - 1).$boldcompensate.$thumb."\n");
+            }else{
+                $emoji = \Emoji\detect_emoji(mb_strimwidth($this->viewBuffer[$x].str_pad("",$width," "),0,$width - 1 ));
+                $boldcompensate = strpos($this->viewBuffer[$x],"\033[1m") !== false ? '        ' : '';
+                $stdio->write(mb_strimwidth($this->viewBuffer[$x].str_pad("",$width," "),0,$width - 1 - count($emoji)).$boldcompensate."$thumb\n");
+                //$logger->debug($this->viewBuffer[$x]);
             }
             
             $drawnLines+=1;
         }
+        
     }
     
 }
