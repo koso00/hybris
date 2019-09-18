@@ -3,11 +3,12 @@
         "mgp25/instagram-php": "^6.1",
         "clue/stdio-react": "^2.3",
         "monolog/monolog": "^2.0",
-        "react/child-process": "^0.6.1",
         "leadthread/php-bitly": "^4.0",
         "p3k/emoji-detector": "^0.2.1",
         "vlucas/phpdotenv": "^3.6",
-        "mkraemer/react-pcntl": "^3.0"
+        "mkraemer/react-pcntl": "^3.0",
+        "react/filesystem": "^0.1.2",
+        "react/http-client": "^0.5.9"
     },
     "autoload": {
         "psr-4": {

@@ -7,6 +7,7 @@ require $autoload;
 use App\Container\Container;
 use App\View\ViewController;
 use App\MessageRender\MessageRender;
+use App\Service\NotificationService;
 use App\MessageRender\BitlyCache;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
@@ -25,13 +26,17 @@ if (!file_exists(__DIR__ . '/.env')){
     file_put_contents(__DIR__ . '/.env', '');
 }
 
-
 $dotenv = \Dotenv\Dotenv::create(__DIR__);
 $dotenv->load();
-$loop = React\EventLoop\Factory::create();
 
+$loop = React\EventLoop\Factory::create();
+$container->register('loop',$loop);
+
+$notifications = new NotificationService($container);
 $viewController = new ViewController($container);
 $messageRender = new MessageRender($container);
+$messageRender = new MessageRender($container);
+
 $stdio = new Stdio($loop);
 $ig = new \InstagramAPI\Instagram(false, false,array(
     'storage'    => 'file',
@@ -57,8 +62,8 @@ $log->pushHandler(new StreamHandler(__DIR__.'/log.log', Logger::DEBUG));
 $bitly = new BitlyCache($container);
 
 $container->register('ig',$ig);
+$container->register('notification',$notifications);
 $container->register('stdio',$stdio);
-$container->register('loop',$loop);
 $container->register('view-controller',$viewController);
 $container->register('message-render',$messageRender);
 $container->register('bitly',$bitly);

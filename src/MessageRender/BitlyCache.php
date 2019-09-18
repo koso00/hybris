@@ -8,18 +8,28 @@ class BitlyCache {
 
     private $cache = [];
     private $container;
-    
+    private $filesystem;
+
     public function __construct($container){
 
-        if (!file_exists(__DIR__ . '/../../cache')){
-            file_put_contents(__DIR__ . '/../../cache', serialize($this->cache));
-        }
-
+        $this->filesystem = \React\Filesystem\Filesystem::create($container->get('loop'));
         if (getenv('BITLY_TOKEN') == null){
             $container->get('logger')->warning('Bitly token not found, nothing will be shortened');
         }
         $this->bitly = new Bitly(getenv('BITLY_TOKEN'));
-        $this->cache = unserialize(file_get_contents(__DIR__ . '/../../cache'));
+
+        if (!file_exists(__DIR__ . '/../../cache/bitly.cache')){
+            $this->filesystem->file(__DIR__ . '/../../cache/bitly.cache')->open('cwt')->then( \Closure::bind(function ($stream) {
+                $stream->end(serialize($this->cache));
+                $this->loadCache();
+            },$this));
+        }else{
+            $this->loadCache();
+        }
+
+       
+        
+        
         /*register_shutdown_function( \Closure::bind(function(){
             $this->writeCache();
         },$this));
@@ -29,8 +39,17 @@ class BitlyCache {
         });*/
     }
 
+    private function loadCache(){
+
+        $this->filesystem->getContents(__DIR__ . '/../../cache/bitly.cache')->then(\Closure::bind(function($contents) {
+            $this->cache = unserialize($contents);
+        },$this));
+        
+    }
     public function writeCache(){
-        file_put_contents(__DIR__ . '/../../cache', serialize($this->cache));
+        $this->filesystem->file(__DIR__ . '/../../cache/bitly.cache')->open('cwt')->then(function ($stream) {
+            $stream->end(serialize($this->cache));
+        });
     }
 
 

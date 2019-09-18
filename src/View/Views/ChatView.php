@@ -2,7 +2,6 @@
 namespace App\View\Views;
 use App\View\AbstractView;
 use Clue\React\Stdio\Stdio;
-use React\ChildProcess\Process;
 use App\Model\Item;
 class ChatView extends AbstractView {
     
@@ -201,9 +200,10 @@ class ChatView extends AbstractView {
         $realtime->on('thread-item-created', \Closure::bind(function ($threadId, $threadItemId, \InstagramAPI\Response\Model\DirectThreadItem $threadItem) {
             
             if ($threadId == $this->threadId){
-                $process = new Process('notify-send "New message from '.$this->thread->getThread()->getThreadTitle().'" "'.$threadItem->getText().'"');
-                $process->start($this->getContainer()->get('loop'));
+               /////////////////// MANDARE NOTIFICA
                 //$this->getContainer()->get('stdio')->write("\07");
+                $this->getContainer()->get('notification')->send($this->thread,$threadItem);
+
                 $this->activity = false;
                 $this->seen = false;
                 array_unshift($this->items,$threadItem);
@@ -211,8 +211,8 @@ class ChatView extends AbstractView {
                 $this->getContainer()->get('realtime')->markDirectItemSeen($threadId,$threadItemId);
                 $this->drawChat();
             }else{
-                $process = new Process('notify-send "New message from '.$this->getContainer()->get('ig')->direct->getThread($threadId)->getThread()->getThreadTitle().'" "'.$threadItem->getText().'"');
-                $process->start($this->getContainer()->get('loop'));
+                $this->getContainer()->get('notification')->send($this->getContainer()->get('ig')->direct->getThread($threadId),$threadItem);
+                //$process->start($this->getContainer()->get('loop'));
             }
             
             /*
@@ -330,9 +330,33 @@ class ChatView extends AbstractView {
                 $this->getContainer()->get('realtime')->markDirectItemSeen($this->threadId,$this->items[0]->getItemId());
             }
         }
-        //$logger->debug(json_encode($this->items));
+        //
         $this->viewerId = $this->thread->getThread()->getViewerId();
         $this->getContainer()->get('message-render')->setViewerId($this->viewerId);
+
+        $lastSeenAt = json_decode(json_encode($this->thread->getThread()->getLastSeenAt()));
+        //$logger->debug(json_encode($lastSeenAt));
+
+        $lastSeenItem = null;
+        foreach ($lastSeenAt as $key => $item){
+            if ($key != $this->viewerId){
+                $lastSeenItem = $item;
+            }
+        }
+        //$logger->debug(json_encode($lastSeenItem));
+
+        foreach($this->items as $item){
+            if ($item->getUserId() == $this->viewerId){
+                if ($item->getItemId() == $lastSeenItem->item_id){
+                    $this->seen = true;
+                }else{
+                    $this->seen = false;
+                }
+                break;
+            }
+        }
+        
+
         //$stdio->write(json_encode($this->thread,JSON_PRETTY_PRINT));
         //$this->drawChat();
     }

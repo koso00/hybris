@@ -9,20 +9,35 @@ class LoginView extends AbstractView {
     public function build(Stdio $stdio,$argument = null){
        
         $stdio->write("|*********************\n");
-        $stdio->write("| Login ");
+        $stdio->write("| Login \n|\n");
 
         $default = glob(__DIR__.'/../../../sessions/*',GLOB_ONLYDIR);
         usort($default, create_function('$a,$b', 'return filemtime($a)<filemtime($b);'));
+
+        $default = array_map(function($var){return basename($var);},$default);
+        $stdio->setAutocomplete(function () use ($default,$stdio){
+            $stdio->write("\033[2K\033[1A");
+
+            $stdio->write("\033[2K\033[1A");
+            $stdio->write("\033[2K\033[1A");
+            $stdio->write("\033[2K\033[1A");
+            $stdio->write("\033[2K\033[1A");
+            $stdio->write("|*********************\n");
+            $stdio->write("| Login \n|\n");
+
+            return $default;
+        });
+
         if (count($default) == 0){
             $stdio->setPrompt("| - Username: ");
             $first = true;
             $username = null;
             $password = null;
         }else{
-            $stdio->setPrompt("| - Username (".basename($default[0]).") :");
+            $stdio->setPrompt("| - Username (".$default[0].") :");
             $first = true;
-            $username = basename($default[0]);
-            $password = basename($default[0]);
+            $username = $default[0];
+            $password = $default[0];
         }
         
         $container = $this->getContainer();
@@ -51,6 +66,7 @@ class LoginView extends AbstractView {
 
                 $container->get('loop')->addTimer(1,
                     function()use( &$username, &$password,$container,$stdio){
+                        $stdio->setAutocomplete(null);
                         $ig = $container->get('ig');
                         $response = $ig->login($username,$password);
                         $container->get('logger')->debug(json_encode($response));

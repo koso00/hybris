@@ -82,8 +82,8 @@ class ChatsView extends AbstractView {
             )));*/
         });
         $realtime->on('thread-item-created', \Closure::bind(function ($threadId, $threadItemId, \InstagramAPI\Response\Model\DirectThreadItem $threadItem) {
-            $process = new Process('notify-send "New message from '.$this->getContainer()->get('ig')->direct->getThread($threadId)->getThread()->getThreadTitle().'" "'.$threadItem->getText().'"');
-            $process->start($this->getContainer()->get('loop'));
+            $this->getContainer()->get('notification')->send($this->getContainer()->get('ig')->direct->getThread($threadId),$threadItem);
+
             $this->updateInbox();
             /*
             $this->getContainer()->get("stdio")->write(json_encode(Array(
@@ -128,7 +128,7 @@ class ChatsView extends AbstractView {
             )));
         });
         $realtime->on('error', function (\Exception $e){
-            $this->getContainer()->get("stdio")->write(json_encode(Array(
+            $this->getContainer()->get("logger")->error(json_encode(Array(
                 "type" => "error",
                 "presence" => $e
             )));
