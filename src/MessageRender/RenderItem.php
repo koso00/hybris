@@ -51,10 +51,10 @@ class RenderItem {
         $width = 0;
 
         //$this->container->get('stdio')->write(json_encode($this->item));
-        switch($this->item->getItemType()){
+        switch($this->item->item_type){
             case "text":
-                $emoji = \Emoji\detect_emoji($this->item->getText());
-                $wrap = $this->wrapText($this->item->getText());
+                $emoji = \Emoji\detect_emoji($this->item->text);
+                $wrap = $this->wrapText($this->item->text);
                 if (count($wrap) == 1){
                     $this->height = 1;
                     $this->width = strlen($wrap[0]);   
@@ -65,7 +65,7 @@ class RenderItem {
                 $this->width = $this->width - count($emoji) * 2;
                 break;
             case "media":
-                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->getMedia()->getImageVersions2()->getCandidates()[0]->getUrl());
+                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->media->image_versions2->candidates[0]->url);
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
@@ -74,22 +74,22 @@ class RenderItem {
                 $this->width = 1;
                 break;
             case "link":
-                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->getLink()->getText());
+                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->link->text);
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
             case "media_share":
-                $this->bitly  = "https://instagram.com/p/".$this->item->getMediaShare()->getCode();
+                $this->bitly  = "https://instagram.com/p/".$this->item->media_share->code;
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
             case "voice_media":
-                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->getVoiceMedia()->getMedia()->getAudio()->getAudioSrc());
+                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->voice_media->media->audio->audio_src);
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
             case "placeholder":
-                $wrap = $this->wrapText($this->item->getPlaceholder()->getMessage());
+                $wrap = $this->wrapText($this->item->placeholder->message);
                 if (count($wrap) == 1){
                     $this->height = 1;
                     $this->width = strlen($wrap[0]);   
@@ -158,12 +158,12 @@ class RenderItem {
 
         $t = array();
         
-        if ($this->item->getUserId() != $this->viewerId){
+        if ($this->item->user_id != $this->viewerId){
             array_push($t,str_pad("",PADDING_LEFT," ")."\\".str_pad("",$this->getWidth() + 2,"-"));
 
-            switch ($this->item->getItemType()){
+            switch ($this->item->item_type){
                 case "text":
-                    $wrap = $this->wrapText($this->item->getText());
+                    $wrap = $this->wrapText($this->item->text);
                     foreach ($wrap as $value) {
                         # code...
                         $emoji = \Emoji\detect_emoji($value);
@@ -184,13 +184,13 @@ class RenderItem {
                     break;
                 case "placeholder":
 
-                    $wrap = $this->wrapText($this->item->getPlaceholder()->getTitle());
+                    $wrap = $this->wrapText($this->item->placeholder->title);
                     foreach ($wrap as $value) {
                         # code...
                         array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth() )." |");
                     }
 
-                    $wrap = $this->wrapText($this->item->getPlaceholder()->getMessage());
+                    $wrap = $this->wrapText($this->item->placeholder->message);
                     foreach ($wrap as $value) {
                         # code...
                         array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth() )." |");
@@ -207,10 +207,10 @@ class RenderItem {
             $localPaddingLeft = $this->getWindowWidth() - ($this->getWidth() + 7);
             array_push($t,str_pad("",$localPaddingLeft," ").".".str_pad("",$this->getWidth() + 2,"-")."/");
 
-            switch ($this->item->getItemType()){
+            switch ($this->item->item_type){
                 case "text":
 
-                    $wrap = $this->wrapText($this->item->getText());
+                    $wrap = $this->wrapText($this->item->text);
                     foreach ($wrap as $value) {
                         # code...
                         $emoji = \Emoji\detect_emoji($value);
@@ -228,13 +228,13 @@ class RenderItem {
                     array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     break;
                 case "placeholder":
-                    $wrap = $this->wrapText($this->item->getPlaceholder()->getTitle());
+                    $wrap = $this->wrapText($this->item->placeholder->title);
                     foreach ($wrap as $value) {
                         # code...
                         //$emoji = \Emoji\detect_emoji($value);
                         array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($value.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     }
-                    $wrap = $this->wrapText($this->item->getPlaceholder()->getMessage());
+                    $wrap = $this->wrapText($this->item->placeholder->message);
                     foreach ($wrap as $value) {
                         # code...
                         //$emoji = \Emoji\detect_emoji($value);

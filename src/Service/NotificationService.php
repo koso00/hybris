@@ -19,27 +19,27 @@ class NotificationService {
     public function send($thread,$item){
         $loop = $this->getContainer()->get('loop');
 
-
         $url = '';
         $profilePicId = '';
-        foreach($thread->getThread()->getUsers() as $user){
-            if ($user->getPk() == $item->getUserId()){
-                $url = $user->getProfilePicUrl();
-                $profilePicId = $user->getProfilePicId();
+        foreach($thread->thread->users as $user){
+            //var_dump($user);
+            if ($user->pk == $item->user_id){
+                $url = $user->profile_pic_url;
+                $profilePicId = $user->profile_pic_id;
                 break;
             }
         }
         
         // $process = new Process();
         if (file_exists(__DIR__ . '/../../cache/'.$profilePicId)){
-            switch($item->getItemType()){
+            switch($item->item_type){
                 case "text":
-                    $text = $item->getText();
+                    $text = $item->text;
                     break;
                 default:
                     $text = '-media-';
             }
-            $this->_send('notify-send "'.$thread->getThread()->getThreadTitle().'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
+            $this->_send('notify-send "'.$thread->thread->thread_title.'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
         }
         
         else{
@@ -55,14 +55,14 @@ class NotificationService {
 
                 $response->on('end',\Closure::bind(function() use ($thread,$item,$profilePicId){
 
-                    switch($item->getItemType()){
+                    switch($item->item_type){
                         case "text":
-                            $text = $item->getText();
+                            $text = $item->text;
                             break;
                         default:
                             $text = '-media-';
                     }
-                    $this->_send('notify-send "'.$thread->getThread()->getThreadTitle().'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
+                    $this->_send('notify-send "'.$thread->thread->thread_title.'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
                 },$this));
             },$this));
             $request->end();

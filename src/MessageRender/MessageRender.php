@@ -23,7 +23,7 @@ class MessageRender {
 
     public function computeThreadHeight($thread){
         $height = 0;
-        foreach ($thread->getThread()->getItems() as $item) {
+        foreach ($thread->items as $item) {
             $height += $this->transform($item)->getHeight();
         }
         return $height;

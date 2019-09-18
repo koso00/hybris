@@ -9,12 +9,16 @@ use App\View\ViewController;
 use App\MessageRender\MessageRender;
 use App\Service\NotificationService;
 use App\MessageRender\BitlyCache;
+use App\Service\InstagramAsync;
+use App\Service\Spinner;
+
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Clue\React\Stdio\Stdio;
+use WyriHaximus\React\ChildProcess\Messenger\Factory as MessengerFactory;
+use WyriHaximus\React\ChildProcess\Messenger\Messages\Factory as MessageFactory;
 
-
-
+use WyriHaximus\React\ChildProcess\Messenger\Messenger;
 
 
 $container = new Container();
@@ -30,27 +34,27 @@ $dotenv = \Dotenv\Dotenv::create(__DIR__);
 $dotenv->load();
 
 $loop = React\EventLoop\Factory::create();
+
+
 $container->register('loop',$loop);
 
 $notifications = new NotificationService($container);
 $viewController = new ViewController($container);
 $messageRender = new MessageRender($container);
-$messageRender = new MessageRender($container);
+$spinner = new Spinner($container);
 
 $stdio = new Stdio($loop);
-$ig = new \InstagramAPI\Instagram(false, false,array(
-    'storage'    => 'file',
-    'basefolder' => __DIR__.'/sessions'
-));
+$ig = new InstagramAsync($container);
 
 $pcntl = new \MKraemer\ReactPCNTL\PCNTL($loop);
 
-$pcntl->on(SIGINT,function()use($stdio,$loop){
+$pcntl->on(SIGINT,function()use($stdio,$loop,$ig){
     $stdio->setPrompt('');
     $stdio->setEcho('');
     for ($i = 0; $i < intval(getenv('LINES')) + 1;$i++){
         $stdio->write("\033[2K\033[1A");
     }
+    $ig->stop();
     $loop->futureTick(function()use($loop){
         $loop->stop();
         die();
@@ -62,6 +66,7 @@ $log->pushHandler(new StreamHandler(__DIR__.'/log.log', Logger::DEBUG));
 $bitly = new BitlyCache($container);
 
 $container->register('ig',$ig);
+$container->register('spinner',$spinner);
 $container->register('notification',$notifications);
 $container->register('stdio',$stdio);
 $container->register('view-controller',$viewController);
@@ -69,4 +74,5 @@ $container->register('message-render',$messageRender);
 $container->register('bitly',$bitly);
 
 $viewController->go('Login');
+
 $loop->run();

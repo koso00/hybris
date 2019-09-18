@@ -31,8 +31,7 @@ class ChatView extends AbstractView {
             'left' => 20
         ]);*/
         $this->updateThread();
-        $stdio->setPrompt($this->prompt);
-        $stdio->setEcho(true);
+        
 
         $this->scrollHeight = count($this->viewBuffer);
         
@@ -86,17 +85,17 @@ class ChatView extends AbstractView {
         },$this)); 
 
         $stdio->on("\x05", \Closure::bind(function () {
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-created');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-updated');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-notify');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-seen');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-activity');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-item-created');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-item-updated');
-            $this->getContainer()->get('realtime')->removeAllListeners('thread-item-removed');
-            $this->getContainer()->get('realtime')->removeAllListeners('client-context-ack');
-            $this->getContainer()->get('realtime')->removeAllListeners('unseen-count-update');
-            $this->getContainer()->get('realtime')->removeAllListeners('presence');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-created');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-updated');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-notify');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-seen');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-activity');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-item-created');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-item-updated');
+            $this->getContainer()->get('ig')->removeAllListeners('thread-item-removed');
+            $this->getContainer()->get('ig')->removeAllListeners('client-context-ack');
+            $this->getContainer()->get('ig')->removeAllListeners('unseen-count-update');
+            $this->getContainer()->get('ig')->removeAllListeners('presence');
             $this->getContainer()->get('stdio')->removeAllListeners("\x05");
             $this->getContainer()->get('stdio')->removeAllListeners("data");
             $this->getContainer()->get('stdio')->removeAllListeners("\033[A");
@@ -122,15 +121,18 @@ class ChatView extends AbstractView {
                 return;
             }
             $this->inputLines = [];
-            $item = new Item();
-            $item->setUserId($this->viewerId)->setItemType("text")->setText(rtrim($input));
+            $item = new \stdClass();
+            $item->user_id = $this->viewerId;
+            $item->item_type = "text";
+            $item->text = rtrim($input);
+
             //$logger->debug($input);
             $this->seen = false;
             //$this->getContainer()->get('ig')->direct->sendText(array("thread" => $this->threadId),$input);
-            $this->getContainer()->get('realtime')->sendTextToDirect($this->threadId,$input);
+            $this->getContainer()->get('ig')->sendText($this->threadId,$input);
 
             array_unshift($this->items,$item);
-
+            
             $this->drawChat();
             /*
             if ($this->scroll > 0){
@@ -141,37 +143,19 @@ class ChatView extends AbstractView {
             
         },$this));
 
-        $realtime = $this->getContainer()->get('realtime');
+        $ig = $this->getContainer()->get('ig');
         
-        $realtime->on('thread-created', function ($threadId, \InstagramAPI\Response\Model\DirectThread $thread) {
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "thread-created",
-                "threadId" => $threadId
-            )));
-        });
-        $realtime->on('thread-updated', function ($threadId, \InstagramAPI\Response\Model\DirectThread $thread) {
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "thread-updated",
-                "threadId" => $threadId
-            )));
-        });
-        $realtime->on('thread-notify', function ($threadId, $threadItemId, \InstagramAPI\Realtime\Payload\ThreadAction $notify) {
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "thread-notify",
-                "threadId" => $threadId,
-                "threadItemId" => $threadItemId,
-                "notify" => $notify
-            )));
-        });
-        $realtime->on('thread-seen',\Closure::bind( function ($threadId, $userId, \InstagramAPI\Response\Model\DirectThreadLastSeenAt $seenAt) {
+        $ig->on('thread-created', function ($threadId, \InstagramAPI\Response\Model\DirectThread $thread) {
             
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "thread-seen",
-                "threadId" => $threadId,
-                "seenAt" => $seenAt,
-                "userId" => $userId
-            )));
-            if ($threadId == $this->threadId && $userId != $this->viewerId){
+        });
+        $ig->on('thread-updated', function ($threadId, \InstagramAPI\Response\Model\DirectThread $thread) {});
+           
+        $ig->on('thread-notify', function ($threadId, $threadItemId, \InstagramAPI\Realtime\Payload\ThreadAction $notify) {
+            
+        });
+        $ig->on('thread-seen',\Closure::bind( function ($response) {
+            
+            if ($response->threadId == $this->threadId && $response->userId != $this->viewerId){
                 $this->seen = true;
                 $this->drawChat();
             }
@@ -182,10 +166,10 @@ class ChatView extends AbstractView {
                 "seenAt" => $seenAt
             )));*/
         },$this));
-        $realtime->on('thread-activity', \Closure::bind(function ($threadId, \InstagramAPI\Realtime\Payload\ThreadActivity $activity) {
+        $ig->on('thread-activity', \Closure::bind(function ($response) {
 
             //$this->threadActivity();
-            if ($threadId == $this->threadId){
+            if ($response->threadId == $this->threadId){
                 $this->activity = true;
                 $this->getContainer()->get('loop')->addTimer(5,\Closure::bind(function(){$this->activity = false;$this->drawChat();},$this));
                 $this->drawChat();
@@ -197,21 +181,23 @@ class ChatView extends AbstractView {
                 "activity" => $activity
             )));*/
         },$this));
-        $realtime->on('thread-item-created', \Closure::bind(function ($threadId, $threadItemId, \InstagramAPI\Response\Model\DirectThreadItem $threadItem) {
+        $ig->on('thread-item-created', \Closure::bind(function ($response) {
             
-            if ($threadId == $this->threadId){
+            if ($response->threadId == $this->threadId){
                /////////////////// MANDARE NOTIFICA
                 //$this->getContainer()->get('stdio')->write("\07");
-                $this->getContainer()->get('notification')->send($this->thread,$threadItem);
+                $this->getContainer()->get('notification')->send($this->thread,$response->threadItem);
 
                 $this->activity = false;
                 $this->seen = false;
                 array_unshift($this->items,$threadItem);
 
-                $this->getContainer()->get('realtime')->markDirectItemSeen($threadId,$threadItemId);
+                $this->getContainer()->get('realtime')->markDirectItemSeen($response->threadId,$response->threadItemId);
                 $this->drawChat();
             }else{
-                $this->getContainer()->get('notification')->send($this->getContainer()->get('ig')->direct->getThread($threadId),$threadItem);
+                $this->getContainer()->get('ig')->getThread($response->threadId)->done(\Closure::bind(function($thread) use ($response){
+                    $this->getContainer()->get('notification')->send($thread,$response->threadItem);
+                },$this));
                 //$process->start($this->getContainer()->get('loop'));
             }
             
@@ -224,52 +210,27 @@ class ChatView extends AbstractView {
             )));*/
         
         },$this));
-        $realtime->on('thread-item-updated', function ($threadId, $threadItemId, \InstagramAPI\Response\Model\DirectThreadItem $threadItem){
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "thread-item-updated",
-                "threadId" => $threadId,
-                "threadItemId" => $threadItemId,
-                "threadItem" => $threadItem
-            )));
+        $ig->on('thread-item-updated', function ($threadId, $threadItemId, \InstagramAPI\Response\Model\DirectThreadItem $threadItem){
+           
         });
-        $realtime->on('thread-item-removed', function ($threadId, $threadItemId){
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "thread-item-removed",
-                "threadId" => $threadId,
-                "threadItemId" => $threadItemId
-            )));
+        $ig->on('thread-item-removed', function ($threadId, $threadItemId){
+           
         });
-        $realtime->on('client-context-ack', function (\InstagramAPI\Realtime\Payload\Action\AckAction $ack){
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "client-context-ack",
-                "ack" => $ack
-            )));
+        $ig->on('client-context-ack', function ($response){
+           
         });
-        $realtime->on('unseen-count-update', function ($inbox, \InstagramAPI\Response\Model\DirectSeenItemPayload $payload){
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "unseen-count-update",
-                "payload" => $payload
-            )));
+        $ig->on('unseen-count-update', function ($inbox, \InstagramAPI\Response\Model\DirectSeenItemPayload $payload){
+           
         });
-        $realtime->on('presence', \Closure::bind(function (\InstagramAPI\Response\Model\UserPresence $presence) {
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "presence",
-                "presence" => $presence
-            )));
-        },$this));
-        $realtime->on('error', function (\Exception $e){
-            $this->getContainer()->get('logger')->debug(json_encode(Array(
-                "type" => "error",
-                "presence" => $e
-            )));
+        $ig->on('presence', \Closure::bind(function (\InstagramAPI\Response\Model\UserPresence $presence) {
             
-            $realtime->stop();
+        },$this));
+        $ig->on('error', function (\Exception $e){
+
         });
         
-
-        //$this->drawView();
-        $this->drawChat();
     }
+
     function flatten(array $array) {
         $return = array();
         array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
@@ -310,52 +271,67 @@ class ChatView extends AbstractView {
     }
     
     private function loadMore(){
-        $more = $this->getContainer()->get('ig')->direct->getThread($this->threadId,$this->prevCursor);
-        $this->prevCursor = $more->getThread()->getPrevCursor();
-        $this->hasOlder = $more->getThread()->getHasOlder();
-        $this->items = array_merge($this->items,$more->getThread()->getItems());
-        $this->drawChat();
-    }
-    private function updateThread(){
-        $stdio = $this->getContainer()->get('stdio');
-        $logger = $this->getContainer()->get('logger');
-        $this->thread = $this->getContainer()->get('ig')->direct->getThread($this->threadId);
-        //$logger->debug(json_encode($this->thread));
-        $this->hasOlder = $this->thread->getThread()->getHasOlder();
-        $this->prevCursor = $this->thread->getThread()->getPrevCursor();
-        $this->items = $this->thread->getThread()->getItems();
-
-        if (isset($this->items[0])){
-            if ($this->items[0]->getUserId() != $this->viewerId){
-                $this->getContainer()->get('realtime')->markDirectItemSeen($this->threadId,$this->items[0]->getItemId());
-            }
-        }
-        //
-        $this->viewerId = $this->thread->getThread()->getViewerId();
-        $this->getContainer()->get('message-render')->setViewerId($this->viewerId);
-
-        $lastSeenAt = json_decode(json_encode($this->thread->getThread()->getLastSeenAt()));
-        //$logger->debug(json_encode($lastSeenAt));
-
-        $lastSeenItem = null;
-        foreach ($lastSeenAt as $key => $item){
-            if ($key != $this->viewerId){
-                $lastSeenItem = $item;
-            }
-        }
-        //$logger->debug(json_encode($lastSeenItem));
-
-        foreach($this->items as $item){
-            if ($item->getUserId() == $this->viewerId){
-                if ($item->getItemId() == $lastSeenItem->item_id){
-                    $this->seen = true;
-                }else{
-                    $this->seen = false;
-                }
-                break;
-            }
-        }
+        $this->getContainer()->get('stdio')->write("\033[2K\033[1A");
+        $this->getContainer()->get('spinner')->start();
+        $this->getContainer()->get('ig')->getThread($this->threadId,$this->prevCursor)->done(\Closure::bind(function($response){
+            $this->getContainer()->get('spinner')->stop();
+            $this->prevCursor = $response->thread->prev_cursor;
+            $this->hasOlder = $response->thread->has_older;
+            $this->items = array_merge($this->items,$response->thread->items);
+            $this->drawChat();
+        },$this));
         
+    }
+
+    private function updateThread(){
+        $this->getContainer()->get('spinner')->start();
+        $this->getContainer()->get('ig')->getThread($this->threadId)->done(\Closure::bind(function($response){
+            $this->getContainer()->get('spinner')->stop();
+            $stdio = $this->getContainer()->get('stdio');
+            $stdio->setPrompt($this->prompt);
+            $stdio->setEcho(true);
+            $this->thread = $response->thread;
+ 
+           
+            $logger = $this->getContainer()->get('logger');
+            //$logger->debug(json_encode($this->thread));
+            $this->hasOlder = $this->thread->has_older;
+            $this->prevCursor = $this->thread->prev_cursor;
+            $this->items = $this->thread->items;
+    
+            if (isset($this->items[0])){
+                if ($this->items[0]->user_id != $this->viewerId){
+                    $this->getContainer()->get('ig')->markDirectItemSeen($this->threadId,$this->items[0]->item_id);
+                }
+            }
+            //
+            $this->viewerId = $this->thread->viewer_id;
+
+            $this->getContainer()->get('message-render')->setViewerId($this->viewerId);
+    
+            $lastSeenAt = json_decode(json_encode($this->thread->last_seen_at));
+            //$logger->debug(json_encode($lastSeenAt));
+    
+            $lastSeenItem = null;
+            foreach ($lastSeenAt as $key => $item){
+                if ($key != $this->viewerId){
+                    $lastSeenItem = $item;
+                }
+            }
+            //$logger->debug(json_encode($lastSeenItem));
+    
+            foreach($this->items as $item){
+                if ($item->user_id == $this->viewerId){
+                    if ($item->item_id == $lastSeenItem->item_id){
+                        $this->seen = true;
+                    }else{
+                        $this->seen = false;
+                    }
+                    break;
+                }
+            }
+            $this->drawChat();
+        },$this));
 
         //$stdio->write(json_encode($this->thread,JSON_PRETTY_PRINT));
         //$this->drawChat();
@@ -375,7 +351,7 @@ class ChatView extends AbstractView {
          * 
          */
         $width = intval(getenv('COLUMNS'));
-        $threadName = $this->thread->getThread()->getThreadTitle();
+        $threadName = $this->thread->thread_title;
         $memory =  str_pad(" memory usage : ".$this->convert(memory_get_usage(true)),10," ");
 
         $paddingLeft = intval($width / 2 - strlen($threadName) / 2) - strlen($memory);

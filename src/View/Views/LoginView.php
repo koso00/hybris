@@ -19,11 +19,7 @@ class LoginView extends AbstractView {
             $stdio->write("\033[2K\033[1A");
 
             $stdio->write("\033[2K\033[1A");
-            $stdio->write("\033[2K\033[1A");
-            $stdio->write("\033[2K\033[1A");
-            $stdio->write("\033[2K\033[1A");
-            $stdio->write("|*********************\n");
-            $stdio->write("| Login \n|\n");
+            $stdio->write("\033[2K\033[1A"); 
 
             return $default;
         });
@@ -64,25 +60,26 @@ class LoginView extends AbstractView {
                     $password = $line;
                 }
 
+
                 $container->get('loop')->addTimer(1,
                     function()use( &$username, &$password,$container,$stdio){
                         $stdio->setAutocomplete(null);
-                        $ig = $container->get('ig');
-                        $response = $ig->login($username,$password);
-                        $container->get('logger')->debug(json_encode($response));
-                        
-                        $loop = $container->get('loop');
-                        $realtime = new \InstagramAPI\Realtime($ig, $loop, null);
-                        
-                        $container->register('ig',$ig);
-                        $container->register('realtime',$realtime);
-        
-                        $realtime->start();
-        
-                        $stdio->write("| Logged in! \r\n");
-                        $stdio->write("|*********************\n");
-        
-                        $container->get('view-controller')->go('Chats',$stdio);
+                        $container->get('spinner')->start();
+                        $container->get('ig')->login($username,$password)->done(function()use($container,$stdio,$username,$password){
+
+                            
+                            //$container->register('ig',$ig);
+                            //$container->register('realtime',$realtime);
+                            $container->get('spinner')->stop();
+                            //$container->get('logger')->debug(json_encode($response));
+                            //$loop = $container->get('loop');
+                            //
+                            $stdio->write("\n| Logged in! \r\n");
+                            $stdio->write("|*********************\n");
+                            
+                            $container->get('view-controller')->go('Chats',$stdio);
+                        });
+                       
                     }
                 );
             }
