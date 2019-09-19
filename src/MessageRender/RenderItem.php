@@ -201,7 +201,9 @@ class RenderItem {
                     break;
             }
             
+           
             array_push($t,str_pad("",PADDING_LEFT," ")."`".str_pad("",$this->getWidth() + 2,"-")."´");
+           
         }else{
 
             $localPaddingLeft = $this->getWindowWidth() - ($this->getWidth() + 7);
@@ -247,6 +249,13 @@ class RenderItem {
 
             }
             array_push($t,str_pad("",$localPaddingLeft," ")."`".str_pad("",$this->getWidth() + 2,"-")."´");
+            if (isset($this->item->deleteMenu)){
+                if ($this->item->deleteMenu){
+                    array_push($t,str_pad("",$this->getWindowWidth() - 8 ," ")."| x |");
+                    array_push($t,str_pad("",$this->getWindowWidth() - 8," ")."`---´");
+                }
+            }
+            
         }
 
        

@@ -143,6 +143,9 @@ class InstagramAsyncWorker implements ChildInterface
                 case "sendText":
                     $realtime->sendTextToDirect($payload["threadId"],$payload["text"]);
                     $response = json_encode();
+                case "deleteItem":
+                    $response = $ig->direct->deleteItem($payload["threadId"],$payload["threadItemId"]);
+                    //$response = json_encode();
                     break;
                 case "markDirectItemSeen":
                     $realtime->markDirectItemSeen($payload["threadId"],$payload["threadItemId"]);

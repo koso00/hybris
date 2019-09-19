@@ -21,7 +21,12 @@ class NotificationService {
 
         $url = '';
         $profilePicId = '';
-        foreach($thread->thread->users as $user){
+        if (isset($thread->thread)){
+            $users = $thread->thread->users;
+        }else{
+            $users = $thread->users;
+        }
+        foreach($users as $user){
             //var_dump($user);
             if ($user->pk == $item->user_id){
                 $url = $user->profile_pic_url;
@@ -39,7 +44,14 @@ class NotificationService {
                 default:
                     $text = '-media-';
             }
-            $this->_send('notify-send "'.$thread->thread->thread_title.'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
+
+            if (isset($thread->thread)){
+                $thread_title = $thread->thread->thread_title;
+            }else{
+                $thread_title = $thread->thread_title;
+            }
+            
+            $this->_send('notify-send "'.$thread_title.'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
         }
         
         else{
@@ -62,7 +74,13 @@ class NotificationService {
                         default:
                             $text = '-media-';
                     }
-                    $this->_send('notify-send "'.$thread->thread->thread_title.'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
+                    if (isset($thread->thread)){
+                        $thread_title = $thread->thread->thread_title;
+                    }else{
+                        $thread_title = $thread->thread_title;
+                    }
+                    
+                    $this->_send('notify-send "'.$thread_title.'" "'.$text.'"'.' -i '.__DIR__.'/../../cache/'.$profilePicId);
                 },$this));
             },$this));
             $request->end();

@@ -5,6 +5,7 @@ class Spinner {
 
     private $loading = false;
     private $spinnerIndex = 0;
+    private $prompt;
     public function __construct($container){
         $this->container = $container;
 
@@ -19,8 +20,8 @@ class Spinner {
                     '⠽',
                     '⠻'
                 );
-        
-                $this->getContainer()->get('stdio')->write("\r".$pattern[$this->spinnerIndex]);
+                $stdio = $this->getContainer()->get('stdio');
+                $stdio->setPrompt($this->prompt.$pattern[$this->spinnerIndex]." ");
                 $this->spinnerIndex += 1;
                 if ($this->spinnerIndex == 6){
                     $this->spinnerIndex = 0;
@@ -34,11 +35,16 @@ class Spinner {
     }
 
     public function start(){
+        if ($this->loading){
+            return;
+        }
+        $this->prompt = "".$this->getContainer()->get('stdio')->getPrompt();
         $this->loading = true;
     }
 
     public function stop(){
         $this->loading = false;
-        $this->getContainer()->get('stdio')->write("\033[2K\033[1A");
+        $this->getContainer()->get('stdio')->setPrompt($this->prompt);
+        $this->prompt = '';
     }
 }

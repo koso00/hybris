@@ -8,7 +8,6 @@ use React\ChildProcess\Process;
 const PADDING = 4;
 class ChatsView extends AbstractView {
 
-    
     private $inbox;
     private $cursor = 0;
     private $username;
@@ -38,7 +37,8 @@ class ChatsView extends AbstractView {
         
         $stdio->setPrompt('');
         $stdio->setEcho('');
-        
+        $stdio->hideCursor(); // hide cursor
+
         $ig = $this->getContainer()->get('ig');
         
         $ig->on('thread-created',\Closure::bind( function () {
@@ -66,61 +66,44 @@ class ChatsView extends AbstractView {
         $this->updateInbox();
         
         $stdio->on("\033[A", \Closure::bind(function () {
-            if ($this->cursor > 0){
-                $this->cursor --;
-                $virtualScroll = 2 + ($this->cursor * 3) - $this->scroll;
-
-                if ($this->scroll > 0){
-                    if ($virtualScroll < intval(getenv('LINES')) - 6){
-                        $this->scroll -= 3;
-                    }
-                }
-
-               
-                $this->drawInbox();
-            }
-            
+            $this->scrollUp();
         },$this));
 
+        $stdio->on('mouse',\Closure::bind(function($event){
+            switch($event["type"]){
+                case "wheel_up":
+                    $this->scrollUp();
+                    break;
+                case "wheel_down":
+                    $this->scrollDown();
+                    break;
+                case "left_click":
+                    if ($event["y"] > 2){
+                        /*$clickOffset = ($event["x"] - 3) % 3;
+                        if ($clickOffset == 2){
+                            return;
+                        }*/
 
-        $stdio->on("\033[B", \Closure::bind(function () {
-            if ($this->cursor < count($this->threads)-1 ){
-                $this->cursor ++;
+                        $cursor = intval(($this->scroll + ($event["y"] - 3) )/ 3);
+                        if ($cursor > count($this->threads) -1){
+                            return;
+                        }
+                        $this->cursor = $cursor;
+                        //echo $this->cursor;
+                        $this->openChat();
+                        //$this->cursor = 
+                        
 
 
-                $virtualScroll = 2 + ($this->cursor * 3) - $this->scroll;
-                
-                if ($this->scroll < count($this->viewBuffer) -3){
-                    if ($virtualScroll > intval(getenv('LINES'))- 6){
-                        $this->scroll += 3;
                     }
-                }
-                
-               if ($this->cursor == count($this->threads) -1 && $this->hasOlder){
-                    $this->loadMore();
-               }else{
-                    $this->drawInbox();
-               }
-               // 
             }
+        },$this));
+        $stdio->on("\033[B", \Closure::bind(function () {
+            $this->scrollDown();
         },$this)); 
     
         $stdio->on("\n",\Closure::bind(function () {
-            $this->getContainer()->get('ig')->removeAllListeners('thread-created');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-updated');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-notify');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-seen');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-activity');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-item-created');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-item-updated');
-            $this->getContainer()->get('ig')->removeAllListeners('thread-item-removed');
-            $this->getContainer()->get('ig')->removeAllListeners('client-context-ack');
-            $this->getContainer()->get('ig')->removeAllListeners('unseen-count-update');
-            $this->getContainer()->get('ig')->removeAllListeners('presence');
-            $this->getContainer()->get('stdio')->removeAllListeners("\n");
-            $this->getContainer()->get('stdio')->removeAllListeners("\033[A");
-            $this->getContainer()->get('stdio')->removeAllListeners("\033[B");
-            $this->getContainer()->get('view-controller')->go("Chat",$this->threads[$this->cursor]->thread_id);
+            $this->openChat();
         },$this));
         /*
         $stdio->on("\033[B", function () use (&$value, $stdio) {
@@ -133,13 +116,70 @@ class ChatsView extends AbstractView {
 
     }
 
+    private function openChat(){
+        $this->getContainer()->get('ig')->removeAllListeners('thread-created');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-updated');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-notify');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-seen');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-activity');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-item-created');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-item-updated');
+        $this->getContainer()->get('ig')->removeAllListeners('thread-item-removed');
+        $this->getContainer()->get('ig')->removeAllListeners('client-context-ack');
+        $this->getContainer()->get('ig')->removeAllListeners('unseen-count-update');
+        $this->getContainer()->get('ig')->removeAllListeners('presence');
+        $this->getContainer()->get('stdio')->removeAllListeners("\n");
+        $this->getContainer()->get('stdio')->removeAllListeners("mouse");            
+        $this->getContainer()->get('stdio')->removeAllListeners("\033[A");
+        $this->getContainer()->get('stdio')->removeAllListeners("\033[B");
+        $this->getContainer()->get('stdio')->write("\033[?25h");
+        $this->getContainer()->get('view-controller')->go("Chat",$this->threads[$this->cursor]->thread_id);
+    }
+    private function scrollUp(){
+        if ($this->cursor > 0){
+            $this->cursor --;
+            $virtualScroll = 2 + ($this->cursor * 3) - $this->scroll;
+
+            if ($this->scroll > 0){
+                if ($virtualScroll < intval(getenv('LINES')) - 6){
+                    $this->scroll -= 3;
+                }
+            }
+
+           
+            $this->drawInbox();
+        }
+        
+    }
+    private function scrollDown(){
+        if ($this->cursor < count($this->threads)-1 ){
+            $this->cursor ++;
+
+
+            $virtualScroll = 2 + ($this->cursor * 3) - $this->scroll;
+            
+            if ($this->scroll < count($this->viewBuffer) -3){
+                if ($virtualScroll > intval(getenv('LINES'))- 6){
+                    $this->scroll += 3;
+                }
+            }
+            
+           if ($this->cursor == count($this->threads) -1 && $this->hasOlder){
+                $this->loadMore();
+           }else{
+                $this->drawInbox();
+           }
+           // 
+        }
+    }
+    
     private function loadMore(){
-        //$this->getContainer()->get('spinner')->start();
+        $this->getContainer()->get('spinner')->start();
         $this->getContainer()->get('ig')->getInbox($this->nextCursor)->done(\Closure::bind(function($response){
-            //$this->getContainer()->get('spinner')->stop();
+            $this->getContainer()->get('spinner')->stop();
             $this->hasOlder = $response->inbox->has_older;
-            $this->nextCursor = $response->inbox->older_cursor;
-            $this->threads = array_merge($this->threads,$more->inbox->threads);
+            $this->nextCursor = $response->inbox->prev_cursor;
+            $this->threads = array_merge($this->threads,$response->inbox->threads);
             $this->drawInbox();
         },$this));
         //$this->getContainer()->get('stdio')->write(json_encode($more->getInbox()->getThreads(),JSON_PRETTY_PRINT));       
@@ -156,10 +196,10 @@ class ChatsView extends AbstractView {
             $this->inbox = $response->inbox;
             $this->threads = $response->inbox->threads;
             //$this->getContainer()->get('logger')->debug(json_encode($response->inbox));
-            $this->viewerId = $response->inbox->viewer->pk;
-            $this->username = $response->inbox->viewer->username;
+            $this->viewerId = $response->viewer->pk;
+            $this->username = $response->viewer->username;
             $this->hasOlder = $response->inbox->has_older;
-            $this->nextCursor = $response->inbox->older_cursor;
+            $this->nextCursor = $response->inbox->prev_cursor;
             $this->drawInbox();
         },$this));
 

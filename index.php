@@ -17,9 +17,9 @@ use Monolog\Handler\StreamHandler;
 use Clue\React\Stdio\Stdio;
 use WyriHaximus\React\ChildProcess\Messenger\Factory as MessengerFactory;
 use WyriHaximus\React\ChildProcess\Messenger\Messages\Factory as MessageFactory;
-
 use WyriHaximus\React\ChildProcess\Messenger\Messenger;
 
+exec('reset');
 
 $container = new Container();
 $log = new Logger('app');
@@ -44,6 +44,8 @@ $messageRender = new MessageRender($container);
 $spinner = new Spinner($container);
 
 $stdio = new Stdio($loop);
+
+
 $ig = new InstagramAsync($container);
 
 $pcntl = new \MKraemer\ReactPCNTL\PCNTL($loop);
@@ -54,6 +56,8 @@ $pcntl->on(SIGINT,function()use($stdio,$loop,$ig){
     for ($i = 0; $i < intval(getenv('LINES')) + 1;$i++){
         $stdio->write("\033[2K\033[1A");
     }
+    $stdio->write("\033[?25h"); // enable cursor
+    $stdio->write("\033[?1000l"); // disable mouse tracking
     $ig->stop();
     $loop->futureTick(function()use($loop){
         $loop->stop();

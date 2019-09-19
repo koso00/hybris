@@ -1,7 +1,6 @@
 {
     "require": {
         "mgp25/instagram-php": "^6.1",
-        "clue/stdio-react": "^2.3",
         "monolog/monolog": "^2.0",
         "leadthread/php-bitly": "^4.0",
         "p3k/emoji-detector": "^0.2.1",
@@ -10,8 +9,15 @@
         "react/filesystem": "^0.1.2",
         "react/http-client": "^0.5.9",
         "lastguest/pixeler": "^1.1",
+        "clue/stdio-react": "dev-dev-mouse",
         "wyrihaximus/react-child-process-messenger": "^2.10"
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/koso00/reactphp-stdio"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "App\\": "src/"

@@ -122,6 +122,18 @@ class InstagramAsync extends EventEmitter {
         return $promise;
     }
 
+    public function deleteItem($threadId,$threadItemId){
+        $this->messenger->message(MessageFactory::message([
+            'type' => 'deleteItem',
+            'threadId' => $threadId,
+            'threadItemId' => $threadItemId,
+        ]));
+        $deferred = new \React\Promise\Deferred();
+        $this->promiseQueue["deleteItem"] = $deferred;
+        $promise = $deferred->promise();
+        return $promise;
+    }
+
     private function getContainer(){
         return $this->container;
     }

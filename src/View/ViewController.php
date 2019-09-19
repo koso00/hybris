@@ -17,8 +17,8 @@ class ViewController {
         
         $container = $this->getContainer();
         $className = 'App\View\Views\\'.$viewName."View";
-        for ($i = 0; $i < intval(getenv('LINES'));$i++){
-            $this->getContainer()->get('stdio')->write("\033[2K\033[1A");
+        for ($i = 0; $i < intval(getenv('LINES')) + 2;$i++){
+            $this->getContainer()->get('stdio')->write("\r\033[2K\033[1A");
         }
         (new $className($container))->build($this->getContainer()->get('stdio'),$arguments);       
     }

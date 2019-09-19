@@ -50,7 +50,7 @@ class LoginView extends AbstractView {
                 }
                 $first = false;
             } else {
-                $stdio->write("| \n| Attempting login...\n");
+                //$stdio->write("| \n| Attempting login...\n");
                 $stdio->setPrompt('');
                 $stdio->setEcho('');
                 $stdio->removeAllListeners('data');
@@ -60,28 +60,27 @@ class LoginView extends AbstractView {
                     $password = $line;
                 }
 
+                $stdio->pause();
+                $stdio->hideCursor();
+                $container->get('spinner')->start();
+                $stdio->setAutocomplete(null);
+                $container->get('ig')->login($username,$password)->done(function()use($container,$stdio,$username,$password){
 
-                $container->get('loop')->addTimer(1,
-                    function()use( &$username, &$password,$container,$stdio){
-                        $stdio->setAutocomplete(null);
-                        $container->get('spinner')->start();
-                        $container->get('ig')->login($username,$password)->done(function()use($container,$stdio,$username,$password){
+                    $stdio->resume();
+                    $stdio->showCursor();
 
-                            
-                            //$container->register('ig',$ig);
-                            //$container->register('realtime',$realtime);
-                            $container->get('spinner')->stop();
-                            //$container->get('logger')->debug(json_encode($response));
-                            //$loop = $container->get('loop');
-                            //
-                            $stdio->write("\n| Logged in! \r\n");
-                            $stdio->write("|*********************\n");
-                            
-                            $container->get('view-controller')->go('Chats',$stdio);
-                        });
+                    //$container->register('ig',$ig);
+                    //$container->register('realtime',$realtime);
+                    $container->get('spinner')->stop();
+                    //$container->get('logger')->debug(json_encode($response));
+                    //$loop = $container->get('loop');
+                    //
+                    $stdio->write("\n| Logged in! \r\n");
+                    $stdio->write("|*********************\n");
+                    
+                    $container->get('view-controller')->go('Chats',$stdio);
+                });
                        
-                    }
-                );
             }
         });
         
