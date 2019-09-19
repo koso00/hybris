@@ -178,7 +178,7 @@ class ChatsView extends AbstractView {
         $this->getContainer()->get('ig')->getInbox($this->nextCursor)->done(\Closure::bind(function($response){
             $this->getContainer()->get('spinner')->stop();
             $this->hasOlder = $response->inbox->has_older;
-            $this->nextCursor = $response->inbox->prev_cursor;
+            $this->nextCursor = $response->inbox->oldest_cursor;
             $this->threads = array_merge($this->threads,$response->inbox->threads);
             $this->drawInbox();
         },$this));
@@ -199,7 +199,7 @@ class ChatsView extends AbstractView {
             $this->viewerId = $response->viewer->pk;
             $this->username = $response->viewer->username;
             $this->hasOlder = $response->inbox->has_older;
-            $this->nextCursor = $response->inbox->prev_cursor;
+            $this->nextCursor = $response->inbox->oldest_cursor;
             $this->drawInbox();
         },$this));
 
