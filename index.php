@@ -24,6 +24,7 @@ exec('reset');
 $container = new Container();
 $log = new Logger('app');
 $container->register('logger',$log); //register before anything to use logger in case of exeptions in construct of components
+ini_set('memory_limit', '-1');
 
 
 if (!file_exists(__DIR__ . '/.env')){

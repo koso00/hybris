@@ -12,11 +12,13 @@ class RenderItem {
     private $width;
     private $viewerId;
     private $bitly;
-    
+    private $response;
+
     public function __construct($item,$container,$viewerId){
         $this->item = $item;
         $this->viewerId = $viewerId;
         $this->container = $container;
+        $this->response = new \stdClass();
     }
     
     public function getContainer(){
@@ -65,8 +67,9 @@ class RenderItem {
                 $this->width = $this->width - count($emoji) * 2;
                 break;
             case "media":
-                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->media->image_versions2->candidates[0]->url);
+                $this->bitly  =  "      -loading-      "; 
                 $this->height = 1;
+                $this->response->promise = $this->getContainer()->get('bitly')->shorten($this->item->media->image_versions2->candidates[0]->url);
                 $this->width = strlen($this->bitly);
                 break;
             case "like":
@@ -74,8 +77,9 @@ class RenderItem {
                 $this->width = 1;
                 break;
             case "link":
-                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->link->text);
+                $this->bitly  = "      -loading-      "; 
                 $this->height = 1;
+                $this->response->promise = $this->getContainer()->get('bitly')->shorten($this->item->link->text);
                 $this->width = strlen($this->bitly);
                 break;
             case "media_share":
@@ -84,7 +88,8 @@ class RenderItem {
                 $this->width = strlen($this->bitly);
                 break;
             case "voice_media":
-                $this->bitly  = $this->getContainer()->get('bitly')->shorten($this->item->voice_media->media->audio->audio_src);
+                $this->bitly  =  "      -loading-      "; 
+                $this->response->promise = $this->getContainer()->get('bitly')->shorten($this->item->voice_media->media->audio->audio_src);
                 $this->height = 1;
                 $this->width = strlen($this->bitly);
                 break;
@@ -101,7 +106,8 @@ class RenderItem {
                 break;
             case "raven_media":
                 if (isset(json_decode(json_encode($this->item))->visual_media->media->image_versions2)){
-                    $this->bitly  = $this->getContainer()->get('bitly')->shorten(json_decode(json_encode($this->item))->visual_media->media->image_versions2->candidates[0]->url);
+                    $this->bitly  = "      -loading-      "; 
+                    $this->response->promise = $this->getContainer()->get('bitly')->shorten(json_decode(json_encode($this->item))->visual_media->media->image_versions2->candidates[0]->url);
                 }else{
                     $this->bitly  = "expired";
                 }
@@ -114,7 +120,7 @@ class RenderItem {
                 $this->getContainer()->get('logger')->debug(json_encode($this->item));
         }
     }
- 
+    
     function flatten(array $array) {
         $return = array();
         array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
@@ -182,6 +188,9 @@ class RenderItem {
 
                     array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     break;
+                case "link":
+                    array_push($t,str_pad("",PADDING_LEFT," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
+                    break;
                 case "placeholder":
 
                     $wrap = $this->wrapText($this->item->placeholder->title);
@@ -229,6 +238,9 @@ class RenderItem {
                     array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth("-voice-".str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
                     break;
+                case "link":
+                    array_push($t,str_pad("",$localPaddingLeft," ")."| ".mb_strimwidth($this->bitly.str_pad("",$this->getWindowWidth()," "),0,$this->getWidth())." |");
+                    break;
                 case "placeholder":
                     $wrap = $this->wrapText($this->item->placeholder->title);
                     foreach ($wrap as $value) {
@@ -258,7 +270,10 @@ class RenderItem {
             
         }
 
-       
-        return $t;
+       $this->response->render = $t;
+
+       //return $t;
+
+       return $this->response;
     }
 }

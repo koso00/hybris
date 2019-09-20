@@ -319,6 +319,23 @@ class ChatView extends AbstractView {
 
         $this->getContainer()->get('stdio')->setPrompt(null);
         $this->getContainer()->get('stdio')->setEcho(null);
+        $this->threadId = null;
+        $this->scroll = 0;
+        $this->scrollHeight = 0;
+        $this->height = 0;
+        $this->width = 0;
+        $this->items = [];
+        $this->rendered_items = [];
+        $this->users = [];
+        $this->prevCursor = null;
+        $this->$hasOlder = false;
+        $this->$viewerId = null;
+        $this->viewBuffer = [];
+        $this->prompt = "| Write message > ";
+        $this->activity = false;
+        $this->seen = false;
+        $this->loadingMore = false;
+        $this->inputLines = array();
         $this->getContainer()->get('loop')->cancelTimer($this->timer);
         $this->getContainer()->get('view-controller')->go("Chats");
     }
@@ -459,14 +476,16 @@ class ChatView extends AbstractView {
         //$this->drawChat();
     }
 
-    private function drawChat(){
+    private function drawChat($skipViewCompilation = false){
 
         $stdio = $this->getcontainer()->get('stdio');
         //$stdio->write("\e[1;1H\e[2J\n");
-        for ($i = 0; $i < intval(getenv('LINES'));$i++){
+        for ($i = 0; $i < intval(getenv('LINES') + 10);$i++){
             $stdio->write("\033[2K\033[1A");
         }
-
+        if ($skipViewCompilation){
+            //$stdio->write("222222\n");
+        }
         /**
          * 
          * Calcolo sulla lunghezza della finestra
@@ -488,22 +507,38 @@ class ChatView extends AbstractView {
         $stdio->write(str_pad("",$width,"-")."\n");
 
         $this->viewBuffer = [];
-
-        if ((count($this->items) != count($this->rendered_items)) || count($this->rendered_items) == 0){
-            $this->rendered_items = [];
-            foreach (array_reverse($this->items) as $item){
-                array_push($this->rendered_items ,$this->getContainer()->get('message-render')->transform($item)->render());
+        if ($skipViewCompilation == false){
+            if ((count($this->items) != count($this->rendered_items)) || count($this->rendered_items) == 0){
+                $this->rendered_items = [];
+                foreach (array_reverse($this->items) as $index => $item){
+                    $promise = $this->getContainer()->get('message-render')->transform($item)->render();
+                    array_push($this->rendered_items ,$promise->render);
+    
+                    if (isset($promise->promise)){
+                        $promise->promise->done(\Closure::bind(function($rerendered)use($index){
+                            //$this->getcontainer()->get('logger')->debug(json_encode($this->rendered_items[$index]));
+    
+                            $this->rendered_items[$index][count($this->rendered_items[$index]) - 2] = str_replace("      -loading-      ",$rerendered,$this->rendered_items[$index][count($this->rendered_items[$index]) - 2]);
+                            
+                            $this->drawChat(true);
+                            
+                        },$this));
+                    }
+                    
+                }
             }
+        }else{
+            $this->getContainer()->get('logger')->debug(json_encode($this->rendered_items));
         }
-
         $this->viewBuffer = array_reduce($this->rendered_items,'array_merge',array());
-        //$this->getcontainer()->get('logger')->debug(json_encode($this->viewBuffer));
+
         
         if ($this->seen){
             array_push($this->viewBuffer,str_pad("",$width - 8," ")."-seen-");
         }
-
-        $this->drawView();
+        //if ($skipViewCompilation == false){
+            $this->drawView();
+        //}
         $stdio->write(".".str_pad("",$width - 2,"-").".\n");
         foreach($this->inputLines as $line){
             $stdio->write("| ".str_pad("",strlen($this->prompt) - 2," ").$line."\n");

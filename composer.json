@@ -2,20 +2,24 @@
     "require": {
         "mgp25/instagram-php": "^6.1",
         "monolog/monolog": "^2.0",
-        "leadthread/php-bitly": "^4.0",
+        "leadthread/php-bitly": "dev-master",
         "p3k/emoji-detector": "^0.2.1",
         "vlucas/phpdotenv": "^3.6",
         "mkraemer/react-pcntl": "^3.0",
         "react/filesystem": "^0.1.2",
         "react/http-client": "^0.5.9",
         "lastguest/pixeler": "^1.1",
-        "clue/stdio-react": "dev-dev-mouse",
+        "clue/stdio-react": "dev-master",
         "wyrihaximus/react-child-process-messenger": "^2.10"
     },
     "repositories": [
         {
             "type": "vcs",
             "url": "https://github.com/koso00/reactphp-stdio"
+        },
+        {
+            "type" : "vcs",
+            "url" :  "https://github.com/koso00/php-bitly"
         }
     ],
     "autoload": {

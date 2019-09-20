@@ -38,7 +38,7 @@ class ChatsView extends AbstractView {
         $stdio->setPrompt('');
         $stdio->setEcho('');
         $stdio->hideCursor(); // hide cursor
-
+        $stdio->resume();
         $ig = $this->getContainer()->get('ig');
         
         $ig->on('thread-created',\Closure::bind( function () {
